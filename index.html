@@ -215,10 +215,15 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 th:first-child, td:first-child { text-align: left; }
 td.l { text-align: left; white-space: normal; min-width: 150px; }
 tr.total td { font-weight: 700; border-bottom: 0; }
-.heat td { text-align: center; border: 2px solid transparent; border-radius: 8px; padding: 7px 4px; font-size: 12px; min-width: 50px; }
+/* карта: «раздельные» границы (при collapse закреплённая колонка не перекрывает зазоры — цвета просвечивали, 25.10.2026) */
+table.heat { border-collapse: separate; border-spacing: 3px; }
+.heat td, .heat th { border: 0; }
+.heat td { text-align: center; border-radius: 8px; padding: 7px 4px; font-size: 12px; min-width: 50px; }
 .heat td:first-child, .heat th:first-child {
   text-align: left; padding-left: 4px; min-width: 104px; font-size: 13px;
-  position: sticky; left: 0; z-index: 2; background: var(--card-solid); border-radius: 0; box-shadow: 6px 0 8px -6px rgba(0, 0, 0, .12);
+  position: sticky; left: 0; z-index: 3; background: var(--card-solid); border-radius: 0;
+  /* сплошная «заливка» зазоров слева/справа + мягкая тень-разделитель */
+  box-shadow: -4px 0 0 var(--card-solid), 4px 0 0 var(--card-solid), 12px 0 10px -8px rgba(0, 0, 0, .18);
 }
 .heat td.none { color: var(--muted); background: var(--chip); }
 .dim { color: var(--muted); }
