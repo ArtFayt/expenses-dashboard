@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мои расходы</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f6f5f2;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --ring: rgba(11, 11, 11, 0.08);
+  --accent: #2a78d6;
+  --accent-soft: #b7d3f6;
+  --accent-ink: #1c5cab;
+  --warn: #fab219;
+  --heat: #cde2fb, #b7d3f6, #9ec5f4, #86b6ef, #6da7ec, #5598e7, #3987e5, #2a78d6, #256abf, #1c5cab, #184f95, #104281, #0d366b;
+  --shadow: 0 1px 2px rgba(11, 11, 11, .04), 0 4px 16px rgba(11, 11, 11, .04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #242423;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --ring: rgba(255, 255, 255, 0.08);
+    --accent: #3987e5;
+    --accent-soft: #184f95;
+    --accent-ink: #86b6ef;
+    --heat: #1f2a3a, #1d3352, #1c3d66, #184f95, #1c5cab, #256abf, #2a78d6, #3987e5, #5598e7, #6da7ec, #86b6ef, #9ec5f4, #b7d3f6;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242423; --ink: #f0efec; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, 0.08);
+  --accent: #3987e5; --accent-soft: #184f95; --accent-ink: #86b6ef;
+  --heat: #1f2a3a, #1d3352, #1c3d66, #184f95, #1c5cab, #256abf, #2a78d6, #3987e5, #5598e7, #6da7ec, #86b6ef, #9ec5f4, #b7d3f6;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.app { max-width: 1240px; margin: 0 auto; padding: 20px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 14px; }
+h1 { font-size: 26px; letter-spacing: -.02em; margin: 0; font-weight: 650; }
+.fresh { color: var(--ink-2); font-size: 13px; }
+.fresh b { color: var(--ink); font-weight: 600; }
+.fresh .warn { color: var(--ink); }
+.fresh .warn::before { content: "⚠ "; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 16px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; max-width: 100%; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  border: 1px solid var(--ring); background: var(--surface); color: var(--ink-2);
+  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.chip.empty { color: var(--muted); }
+.chip:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.kpi { background: var(--surface); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); border: 1px solid var(--ring); }
+.kpi .t { color: var(--ink-2); font-size: 13px; }
+.kpi .v { font-size: 28px; font-weight: 650; letter-spacing: -.02em; margin-top: 2px; }
+.kpi .s { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.kpi .s .up::before { content: "▲ "; font-size: 10px; }
+.kpi .s .down::before { content: "▼ "; font-size: 10px; }
+.kpi .s .up, .kpi .s .down { color: var(--ink-2); font-weight: 600; }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card { background: var(--surface); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); border: 1px solid var(--ring); min-width: 0; }
+.card.wide { grid-column: 1 / -1; }
+.card h2 { font-size: 15px; margin: 0 0 2px; font-weight: 620; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.card .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+.crumbs button { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer; }
+.crumbs span { color: var(--muted); }
+.linkbtn { margin-left: auto; background: none; border: 0; color: var(--accent-ink); font: inherit; font-size: 12.5px; cursor: pointer; padding: 0; }
+
+svg text { fill: var(--muted); font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+svg .lbl { fill: var(--ink-2); font-weight: 600; }
+
+.bars { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; gap: 7px 10px; align-items: center; }
+.bars .name { font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .name.click { cursor: pointer; }
+.bars .name.click:hover { color: var(--accent-ink); }
+.bars .track { height: 12px; position: relative; }
+.bars .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bars .val { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); white-space: nowrap; }
+.bars .val i { font-style: normal; color: var(--muted); margin-left: 6px; font-size: 12px; }
+.bars .row { display: contents; }
+.bars .row:hover .fill { background: var(--accent-ink); }
+
+.tablewrap { overflow-x: auto; margin: 0 -4px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+th:first-child, td:first-child { text-align: left; }
+td.l { text-align: left; white-space: normal; min-width: 140px; }
+tr.total td { font-weight: 650; border-bottom: 0; }
+.heat td { text-align: center; border: 2px solid var(--surface); border-radius: 6px; padding: 7px 4px; font-size: 12px; min-width: 52px; }
+.heat td:first-child { text-align: left; border: 0; color: var(--ink); padding-left: 0; min-width: 110px; font-size: 13px; }
+.heat td.none { color: var(--muted); background: var(--surface-2); }
+.delta-up { color: var(--ink); }
+.delta-up::before { content: "▲ "; font-size: 9px; color: var(--muted); }
+.delta-down { color: var(--ink-2); }
+.delta-down::before { content: "▼ "; font-size: 9px; color: var(--muted); }
+.flag { cursor: help; }
+.cur { color: var(--muted); }
+select { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--ring); background: var(--surface); color: var(--ink); }
+.cmpsel { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; color: var(--ink-2); font-size: 13px; }
+
+.tip {
+  position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--surface);
+  padding: 7px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.35; max-width: 260px;
+  opacity: 0; transition: opacity .08s; white-space: pre-line;
+}
+.tip.on { opacity: 1; }
+.empty-state { color: var(--muted); padding: 24px 0; text-align: center; }
+footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
+.hdr-actions { margin-left: auto; display: flex; gap: 6px; }
+.loading { color: var(--muted); text-align: center; padding: 30vh 16px 0; }
+.gate { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.gatecard { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--ring); border-radius: 16px; padding: 24px; box-shadow: var(--shadow); }
+.gatecard h1 { font-size: 22px; margin-bottom: 6px; }
+.gatecard p { color: var(--ink-2); font-size: 13.5px; margin: 0 0 16px; }
+.gatecard input { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--axis); background: var(--page); color: var(--ink); margin-bottom: 10px; }
+.gatecard button { width: 100%; font: inherit; font-weight: 600; padding: 10px; border-radius: 10px; border: 0; background: var(--ink); color: var(--surface); cursor: pointer; }
+.gatecard button:disabled { opacity: .5; cursor: wait; }
+.gateerr { color: var(--ink); font-size: 13px; margin-top: 10px; min-height: 1em; }
+.gateerr:not(:empty)::before { content: "⚠ "; }
+
+@media (max-width: 860px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .kpi .v { font-size: 22px; }
+  h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="loading" id="loading">Загружаю данные…</div>
+<div class="gate" id="gate" hidden>
+  <form class="gatecard" id="gateForm" autocomplete="on">
+    <h1>Мои расходы</h1>
+    <p>Введи пароль дашборда. Браузер запомнит вход на 30 дней.</p>
+    <input type="text" name="username" value="rashody" autocomplete="username" hidden>
+    <input type="password" id="gatePass" autocomplete="current-password" placeholder="Пароль" required>
+    <button type="submit" id="gateBtn">Войти</button>
+    <div class="gateerr" id="gateErr" role="alert"></div>
+  </form>
+</div>
+<div class="app" id="app" hidden>
+  <header>
+    <h1>Мои расходы</h1>
+    <div class="fresh" id="fresh"></div>
+    <div class="hdr-actions" id="hdrActions"></div>
+  </header>
+
+  <div class="filters">
+    <div class="chips" id="monthChips" role="group" aria-label="Период"></div>
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="card wide">
+      <h2><span id="mTitle">По месяцам</span><button class="linkbtn" id="mTableBtn">Таблица</button></h2>
+      <div class="sub" id="mSub">Нажми на столбец, чтобы выбрать месяц</div>
+      <div id="chMonths"></div>
+      <div id="mTable" hidden></div>
+    </div>
+    <div class="card">
+      <h2>Куда ушли деньги</h2>
+      <div class="sub crumbs" id="crumbs"></div>
+      <div id="chBlocks"></div>
+    </div>
+    <div class="card">
+      <h2>Топ подкатегорий</h2>
+      <div class="sub" id="topSub"></div>
+      <div id="chTop"></div>
+    </div>
+    <div class="card wide">
+      <h2>Карта: блок × месяц</h2>
+      <div class="sub">Цвет — относительно максимума своего блока: видно, в какие месяцы блок «выстреливал»</div>
+      <div class="tablewrap" id="heat"></div>
+    </div>
+    <div class="card wide">
+      <h2>Сравнение месяцев</h2>
+      <div class="cmpsel" id="cmpSel"></div>
+      <div class="tablewrap" id="cmp"></div>
+    </div>
+    <div class="card wide">
+      <h2>Последние траты из бота</h2>
+      <div class="sub" id="recentSub"></div>
+      <div class="tablewrap" id="recent"></div>
+    </div>
+  </section>
+  <footer id="foot"></footer>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>window.EXPENSES_DATA = null; /*__DATA__*/</script>
+<script>
+function boot(RAW) {
+  'use strict';
+  var MS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  var MF = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+  var MD = ['январю', 'февралю', 'марту', 'апрелю', 'маю', 'июню', 'июлю', 'августу', 'сентябрю', 'октябрю', 'ноябрю', 'декабрю'];
+  var MP = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'];
+  var $ = function (id) { return document.getElementById(id); };
+
+  if (!RAW || !RAW.rows || !RAW.rows.length) {
+    $('kpis').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Нет данных: дашборд ещё не подключён к источнику.</div>';
+    return;
+  }
+
+  // ---------- данные ----------
+  var rows = RAW.rows.map(function (r) {
+    return { d: r[0], ym: r[0].slice(0, 7), b: r[1], c: r[2], s: r[3], rub: r[4], amt: r[5], cur: r[6],
+             item: r[7], mer: r[8], src: r[9], flag: r[10] };
+  });
+  var BLOCK_ORDER = ['Продуктовые', 'Еда вне дома', 'Бытовые', 'Здоровье', 'Транспорт', 'Развлечения', 'Семья', 'Вещи', 'Домовые'];
+  var yms = (function () {
+    var a = rows[0].ym, z = rows[rows.length - 1].ym, out = [];
+    var y = +a.slice(0, 4), m = +a.slice(5, 7);
+    while (true) {
+      var k = y + '-' + (m < 10 ? '0' : '') + m;
+      out.push(k);
+      if (k === z) break;
+      m++; if (m > 12) { m = 1; y++; }
+    }
+    return out;
+  })();
+  var hasData = {}, srcOf = {};
+  rows.forEach(function (r) { hasData[r.ym] = true; (srcOf[r.ym] = srcOf[r.ym] || {})[r.src] = true; });
+  var multiYear = yms[0].slice(0, 4) !== yms[yms.length - 1].slice(0, 4);
+  // текущий месяц ещё идёт → неполный: не входит в средние и в сравнение по умолчанию
+  var curYm = String(RAW.generated_at || '').slice(0, 7);
+  function isPartial(k) { return k === curYm; }
+
+  var state = { month: 'all', path: [] }; // path: [] | [block] | [block, category]
+
+  function mLabel(ym, full) {
+    var m = +ym.slice(5, 7) - 1, y = ym.slice(0, 4);
+    return (full ? MF[m] : MS[m]) + (full || multiYear ? ' ' + y : '');
+  }
+  function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i].rub; return s; }
+  function rub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+  function rubk(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(2).replace('.', ',') + ' млн';
+    if (n >= 1e5) return Math.round(n / 1e3) + ' к';
+    if (n >= 1e3) return (n / 1e3).toFixed(1).replace('.', ',') + ' к';
+    return String(Math.round(n));
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function inPath(r, path) { return (!path[0] || r.b === path[0]) && (!path[1] || r.c === path[1]); }
+  function sel(month, path) {
+    return rows.filter(function (r) { return (month === 'all' || r.ym === month) && inPath(r, path || []); });
+  }
+  function groupBy(a, key) {
+    var m = {};
+    a.forEach(function (r) { m[r[key]] = (m[r[key]] || 0) + r.rub; });
+    return Object.keys(m).map(function (k) { return { k: k, v: m[k] }; }).sort(function (x, y) { return y.v - x.v; });
+  }
+  function dataMonths() { return yms.filter(function (k) { return hasData[k]; }); }
+  function fullMonths() { return dataMonths().filter(function (k) { return !isPartial(k); }); }
+  function prevDataMonth(ym) { var i = yms.indexOf(ym); for (var j = i - 1; j >= 0; j--) if (hasData[yms[j]]) return yms[j]; return null; }
+
+  // ---------- подсказка ----------
+  var tip = $('tip');
+  function showTip(e, text) {
+    tip.textContent = text; tip.classList.add('on');
+    var x = (e.touches ? e.touches[0].clientX : e.clientX), y = (e.touches ? e.touches[0].clientY : e.clientY);
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x + 12)) + 'px';
+    tip.style.top = Math.max(8, y - h - 12) + 'px';
+  }
+  function hideTip() { tip.classList.remove('on'); }
+  function bindTips(root) {
+    root.querySelectorAll('[data-tip]').forEach(function (n) {
+      n.addEventListener('mousemove', function (e) { showTip(e, n.getAttribute('data-tip')); });
+      n.addEventListener('mouseleave', hideTip);
+    });
+  }
+  document.addEventListener('scroll', hideTip, { passive: true });
+
+  // ---------- шапка: свежесть данных ----------
+  function renderFresh() {
+    var dm = dataMonths();
+    var gaps = yms.filter(function (k) { return !hasData[k]; });
+    var parts = [];
+    parts.push('Данные: <b>' + mLabel(dm[0], true) + ' – ' + mLabel(dm[dm.length - 1], true) + '</b>');
+    parts.push('обработка бота: <b>' + esc((RAW.last_processed_at || '—').slice(0, 16)) + '</b> МСК');
+    if (RAW.pending) parts.push('<span class="warn">ждут обработки: ' + RAW.pending + '</span>');
+    if (gaps.length) parts.push('<span class="warn">нет данных: ' + gaps.map(function (k) { return mLabel(k); }).join(', ') + '</span>');
+    $('fresh').innerHTML = parts.join(' · ');
+    var rates = Object.keys(RAW.rates || {}).map(function (c) { return c + ' ' + String(RAW.rates[c].rate).replace('.', ','); });
+    $('foot').innerHTML = 'Источник: Telegram-бот (траты по позициям) + старая таблица «Расходы РФ 2024-2026» (итоги месяцев). ' +
+      'Курсы к рублю: ' + esc(rates.join(' · ')) + '. Выгрузка: ' + esc(RAW.generated_at) + '.';
+  }
+
+  // ---------- фильтр месяцев ----------
+  function renderChips() {
+    var h = '<button class="chip" data-m="all" aria-pressed="' + (state.month === 'all') + '">Всё время</button>';
+    yms.slice().reverse().forEach(function (k) {
+      h += '<button class="chip' + (hasData[k] ? '' : ' empty') + '" data-m="' + k + '" aria-pressed="' + (state.month === k) + '"' +
+        (hasData[k] ? '' : ' title="нет данных"') + '>' + mLabel(k) + '</button>';
+    });
+    $('monthChips').innerHTML = h;
+    $('monthChips').querySelectorAll('.chip').forEach(function (b) {
+      b.addEventListener('click', function () { state.month = b.getAttribute('data-m'); render(); });
+    });
+  }
+
+  // ---------- KPI ----------
+  function renderKpis() {
+    var cur = sel(state.month, []);
+    var tot = sum(cur);
+    var dm = dataMonths(), fm = fullMonths();
+    var monthTotals = fm.map(function (k) { return sum(sel(k, [])); });
+    var avg = monthTotals.reduce(function (a, b) { return a + b; }, 0) / (fm.length || 1);
+    var blocks = groupBy(cur, 'b');
+    var top = blocks[0];
+    var h = '';
+    if (state.month === 'all') {
+      h += kpi('Всего за период', rub(tot), dm.length + ' мес. с данными' + (dm.length > fm.length ? ' (' + mLabel(curYm) + ' — неполный)' : ''));
+      h += kpi('Средний месяц', rub(avg), 'по ' + fm.length + ' полным мес.');
+    } else {
+      var p = prevDataMonth(state.month), sub;
+      if (p) {
+        var pv = sum(sel(p, []));
+        var d = pv ? (tot / pv - 1) * 100 : 0;
+        sub = '<span class="' + (d >= 0 ? 'up' : 'down') + '">' + Math.abs(d).toFixed(0) + '%</span> к ' + MD[+p.slice(5, 7) - 1] +
+          (multiYear ? ' ' + p.slice(0, 4) : '');
+      } else sub = 'нет предыдущего месяца';
+      h += kpi('Итого за ' + mLabel(state.month, true) + (isPartial(state.month) ? ' (идёт)' : ''), rub(tot), sub);
+      var dv = avg ? (tot / avg - 1) * 100 : 0;
+      h += kpi('Против среднего месяца', (dv >= 0 ? '+' : '−') + Math.abs(dv).toFixed(0) + '%', 'средний: ' + rub(avg));
+    }
+    h += kpi('Больше всего', top ? esc(top.k) : '—', top ? rub(top.v) + ' · ' + Math.round(top.v / tot * 100) + '% трат' : '');
+    var food = sum(cur.filter(function (r) { return r.b === 'Продуктовые' || r.b === 'Еда вне дома'; }));
+    h += kpi('Еда (дома + вне)', rub(food), Math.round(food / (tot || 1) * 100) + '% трат');
+    $('kpis').innerHTML = h;
+  }
+  function kpi(t, v, s) { return '<div class="kpi"><div class="t">' + t + '</div><div class="v">' + v + '</div><div class="s">' + s + '</div></div>'; }
+
+  // ---------- столбцы по месяцам ----------
+  function niceMax(v) {
+    if (v <= 0) return 1;
+    var p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
+    var step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+    return step * p;
+  }
+  function renderMonths() {
+    var box = $('chMonths');
+    var path = state.path;
+    $('mTitle').textContent = path.length ? 'По месяцам: ' + path.join(' › ') : 'По месяцам';
+    var W = Math.max(300, box.clientWidth || 600), H = 230, PL = 46, PR = 6, PT = 18, PB = 26;
+    var vals = yms.map(function (k) { return { k: k, v: sum(sel(k, path)), has: !!hasData[k] }; });
+    var mx = niceMax(Math.max.apply(null, vals.map(function (x) { return x.v; })));
+    var iw = W - PL - PR, ih = H - PT - PB, n = vals.length, bw = iw / n;
+    var barW = Math.max(6, Math.min(44, bw - 10));
+    var y = function (v) { return PT + ih - v / mx * ih; };
+    var s = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Расходы по месяцам">';
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (t) {
+      var yy = y(mx * t);
+      s += '<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + yy + '" y2="' + yy + '" stroke="var(' + (t ? '--grid' : '--axis') + ')" stroke-width="1"/>';
+      s += '<text x="' + (PL - 6) + '" y="' + (yy + 4) + '" text-anchor="end">' + rubk(mx * t) + '</text>';
+    });
+    var avgVals = vals.filter(function (x) { return x.has; });
+    vals.forEach(function (x, i) {
+      var cx = PL + bw * i + bw / 2, x0 = cx - barW / 2;
+      var selOn = state.month !== 'all', isSel = state.month === x.k;
+      if (x.has && x.v > 0) {
+        var top = y(x.v), base = y(0), r = Math.min(4, barW / 2, base - top);
+        var d = 'M' + x0 + ',' + base + 'V' + (top + r) + 'Q' + x0 + ',' + top + ' ' + (x0 + r) + ',' + top +
+          'H' + (x0 + barW - r) + 'Q' + (x0 + barW) + ',' + top + ' ' + (x0 + barW) + ',' + (top + r) + 'V' + base + 'Z';
+        s += '<path d="' + d + '" fill="var(--accent)" opacity="' + (selOn && !isSel ? 0.35 : 1) + '"/>';
+        if (isSel || (!selOn && x.v === Math.max.apply(null, avgVals.map(function (z) { return z.v; })))) {
+          s += '<text class="lbl" x="' + cx + '" y="' + (top - 5) + '" text-anchor="middle">' + rubk(x.v) + '</text>';
+        }
+      } else {
+        s += '<text x="' + cx + '" y="' + (y(0) - 6) + '" text-anchor="middle">' + (x.has ? '0' : '—') + '</text>';
+      }
+      s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle"' + (isSel ? ' class="lbl"' : '') + '>' + mLabel(x.k) + (isPartial(x.k) ? '*' : '') + '</text>';
+      var src = srcOf[x.k] ? (srcOf[x.k].h && srcOf[x.k].b ? 'история + бот' : srcOf[x.k].h ? 'старая таблица (итоги месяца)' : 'бот (траты по позициям)') : '';
+      var t = mLabel(x.k, true) + ': ' + (x.has ? rub(x.v) + '\nисточник: ' + src + (isPartial(x.k) ? '\n* месяц ещё идёт' : '') : 'нет данных');
+      s += '<rect x="' + (PL + bw * i) + '" y="' + PT + '" width="' + bw + '" height="' + (ih + PB) + '" fill="transparent" data-m="' + x.k + '" data-tip="' + esc(t) + '" style="cursor:pointer"/>';
+    });
+    s += '</svg>';
+    box.innerHTML = s;
+    bindTips(box);
+    box.querySelectorAll('rect[data-m]').forEach(function (r) {
+      r.addEventListener('click', function (e) {
+        var k = r.getAttribute('data-m');
+        if (!hasData[k]) { showTip(e, r.getAttribute('data-tip')); return; }
+        state.month = state.month === k ? 'all' : k; render();
+      });
+    });
+    // таблица-двойник
+    var t = '<table><tr><th>Месяц</th><th>Сумма</th><th>Источник</th></tr>';
+    vals.forEach(function (x) {
+      t += '<tr><td>' + mLabel(x.k, true) + '</td><td>' + (x.has ? rub(x.v) : '—') + '</td><td>' +
+        (srcOf[x.k] ? Object.keys(srcOf[x.k]).map(function (z) { return z === 'h' ? 'история' : 'бот'; }).join(' + ') : 'нет данных') + '</td></tr>';
+    });
+    $('mTable').innerHTML = '<div class="tablewrap">' + t + '</table></div>';
+  }
+
+  // ---------- блоки с проваливанием ----------
+  function renderBlocks() {
+    var path = state.path, cur = sel(state.month, path);
+    var level = path.length === 0 ? 'b' : path.length === 1 ? 'c' : 's';
+    if (level === 'c') { // если в блоке одна категория — сразу подкатегории
+      var cats = groupBy(cur, 'c');
+      if (cats.length === 1) level = 's';
+    }
+    var g = groupBy(cur, level), tot = sum(cur), mx = g.length ? g[0].v : 1;
+    var cr = '<button data-p="0">Все блоки</button>';
+    path.forEach(function (p, i) { cr += ' <span>›</span> <button data-p="' + (i + 1) + '">' + esc(p) + '</button>'; });
+    cr += ' <span>· ' + rub(tot) + (state.month === 'all' ? ' за всё время' : ' в ' + MP[+state.month.slice(5, 7) - 1]) + '</span>';
+    $('crumbs').innerHTML = cr;
+    $('crumbs').querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () { state.path = state.path.slice(0, +b.getAttribute('data-p')); render(); });
+    });
+    if (!g.length) { $('chBlocks').innerHTML = '<div class="empty-state">Нет трат за выбранный период</div>'; return; }
+    var canDrill = level !== 's';
+    var h = '<div class="bars">';
+    g.forEach(function (x) {
+      var share = tot ? Math.round(x.v / tot * 100) : 0;
+      h += '<div class="row" data-k="' + esc(x.k) + '"><div class="name' + (canDrill ? ' click' : '') + '" data-k="' + esc(x.k) + '" title="' + esc(x.k) + '">' + esc(x.k) + (canDrill ? ' ›' : '') + '</div>' +
+        '<div class="track" data-tip="' + esc(x.k + ': ' + rub(x.v) + ' · ' + share + '%') + '"><div class="fill" style="width:' + (x.v / mx * 100).toFixed(1) + '%"></div></div>' +
+        '<div class="val">' + rubk(x.v) + '<i>' + share + '%</i></div></div>';
+    });
+    $('chBlocks').innerHTML = h + '</div>';
+    bindTips($('chBlocks'));
+    if (canDrill) $('chBlocks').querySelectorAll('.name.click').forEach(function (n) {
+      n.addEventListener('click', function () {
+        var k = n.getAttribute('data-k');
+        if (level === 'b') state.path = [k];
+        else state.path = [state.path[0], k];
+        render();
+      });
+    });
+  }
+
+  function renderTop() {
+    var cur = sel(state.month, state.path), g = groupBy(cur, 's').slice(0, 10), tot = sum(cur);
+    $('topSub').textContent = (state.path.length ? state.path.join(' › ') + ', ' : '') + (state.month === 'all' ? 'всё время' : mLabel(state.month, true));
+    if (!g.length) { $('chTop').innerHTML = '<div class="empty-state">Нет трат</div>'; return; }
+    var mx = g[0].v, h = '<div class="bars">';
+    g.forEach(function (x) {
+      h += '<div class="row"><div class="name" title="' + esc(x.k) + '">' + esc(x.k) + '</div>' +
+        '<div class="track" data-tip="' + esc(x.k + ': ' + rub(x.v)) + '"><div class="fill" style="width:' + (x.v / mx * 100).toFixed(1) + '%"></div></div>' +
+        '<div class="val">' + rubk(x.v) + '<i>' + Math.round(x.v / (tot || 1) * 100) + '%</i></div></div>';
+    });
+    $('chTop').innerHTML = h + '</div>';
+    bindTips($('chTop'));
+  }
+
+  // ---------- тепловая карта ----------
+  function heatColors() { return getComputedStyle(document.documentElement).getPropertyValue('--heat').split(',').map(function (s) { return s.trim(); }); }
+  function renderHeat() {
+    var ramp = heatColors(), dark = matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.getAttribute('data-theme') !== 'light' || document.documentElement.getAttribute('data-theme') === 'dark';
+    var h = '<table class="heat"><tr><th></th>' + yms.map(function (k) { return '<th>' + mLabel(k) + '</th>'; }).join('') + '</tr>';
+    BLOCK_ORDER.forEach(function (b) {
+      var vals = yms.map(function (k) { return sum(sel(k, [b])); });
+      var mx = Math.max.apply(null, vals) || 1;
+      h += '<tr><td>' + esc(b) + '</td>';
+      vals.forEach(function (v, i) {
+        var k = yms[i];
+        if (!hasData[k]) { h += '<td class="none" data-tip="' + esc(b + ', ' + mLabel(k, true) + ': нет данных') + '">—</td>'; return; }
+        var idx = Math.round(v / mx * (ramp.length - 1));
+        var strong = dark ? idx < 7 : idx >= 7;
+        h += '<td style="background:' + ramp[idx] + ';color:' + (strong ? (dark ? 'var(--ink)' : '#fff') : 'var(--ink)') + '" data-tip="' +
+          esc(b + ', ' + mLabel(k, true) + ': ' + rub(v)) + '">' + (v ? rubk(v) : '·') + '</td>';
+      });
+      h += '</tr>';
+    });
+    $('heat').innerHTML = h + '</table>';
+    bindTips($('heat'));
+  }
+
+  // ---------- сравнение ----------
+  var cmpA = null, cmpB = null;
+  function renderCmp() {
+    var dm = dataMonths();
+    if (dm.length < 2) { $('cmp').innerHTML = '<div class="empty-state">Нужно хотя бы 2 месяца с данными</div>'; $('cmpSel').innerHTML = ''; return; }
+    var fm = fullMonths();
+    var a = state.month !== 'all' ? state.month : (fm[fm.length - 1] || dm[dm.length - 1]); // по умолчанию — последний ПОЛНЫЙ месяц
+    if (!cmpA || state._lastCmpMonth !== state.month) { cmpA = a; cmpB = prevDataMonth(a) || dm[0]; state._lastCmpMonth = state.month; }
+    var opts = function (v) { return dm.map(function (k) { return '<option value="' + k + '"' + (k === v ? ' selected' : '') + '>' + mLabel(k, true) + '</option>'; }).join(''); };
+    $('cmpSel').innerHTML = '<select id="cmpA" aria-label="Месяц">' + opts(cmpA) + '</select> против <select id="cmpB" aria-label="С чем сравнить">' + opts(cmpB) + '</select>';
+    $('cmpA').addEventListener('change', function (e) { cmpA = e.target.value; renderCmp(); });
+    $('cmpB').addEventListener('change', function (e) { cmpB = e.target.value; renderCmp(); });
+    var A = sel(cmpA, []), B = sel(cmpB, []);
+    var t = '<table><tr><th>Блок</th><th>' + mLabel(cmpA) + '</th><th>' + mLabel(cmpB) + '</th><th>Разница</th><th>%</th></tr>';
+    var ta = 0, tb = 0;
+    BLOCK_ORDER.forEach(function (b) {
+      var va = sum(A.filter(function (r) { return r.b === b; })), vb = sum(B.filter(function (r) { return r.b === b; }));
+      ta += va; tb += vb;
+      if (!va && !vb) return;
+      t += row(b, va, vb);
+    });
+    t += row('Итого', ta, tb, true);
+    $('cmp').innerHTML = t + '</table>';
+    function row(name, va, vb, total) {
+      var d = va - vb, p = vb ? (va / vb - 1) * 100 : null;
+      return '<tr' + (total ? ' class="total"' : '') + '><td>' + esc(name) + '</td><td>' + rub(va) + '</td><td>' + rub(vb) + '</td><td class="' +
+        (d > 0 ? 'delta-up' : d < 0 ? 'delta-down' : '') + '">' + rub(Math.abs(d)) + '</td><td>' + (p === null ? '—' : (p >= 0 ? '+' : '−') + Math.abs(p).toFixed(0) + '%') + '</td></tr>';
+    }
+  }
+
+  // ---------- лента трат из бота ----------
+  function renderRecent() {
+    var b = rows.filter(function (r) { return r.src === 'b' && (state.month === 'all' || r.ym === state.month) && inPath(r, state.path); })
+      .sort(function (x, y) { return x.d < y.d ? 1 : -1; });
+    $('recentSub').textContent = b.length ? b.length + ' трат по позициям · ' + rub(sum(b)) : '';
+    if (!b.length) { $('recent').innerHTML = '<div class="empty-state">За выбранный период трат из бота нет — бот ведётся с октября 2026</div>'; return; }
+    var t = '<table><tr><th>Когда (МСК)</th><th>Что</th><th>В валюте</th><th>₽</th><th>Категория</th></tr>';
+    b.slice(0, 60).forEach(function (r) {
+      var dd = r.d.slice(8, 10) + '.' + r.d.slice(5, 7) + ' ' + r.d.slice(11, 16);
+      t += '<tr><td>' + dd + '</td><td class="l">' + esc(r.item) + (r.mer ? ' <span class="cur">· ' + esc(r.mer) + '</span>' : '') +
+        (r.flag ? ' <span class="flag" title="' + esc(r.flag) + '">⚠</span>' : '') + '</td><td>' +
+        (r.cur === 'RUB' ? '' : r.amt.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) + ' <span class="cur">' + r.cur + '</span>') +
+        '</td><td>' + rub(r.rub) + '</td><td class="l">' + esc(r.b) + ' <span class="cur">› ' + esc(r.s) + '</span></td></tr>';
+    });
+    $('recent').innerHTML = t + '</table>';
+  }
+
+  // ---------- сборка ----------
+  function render() {
+    hideTip();
+    renderChips(); renderKpis(); renderMonths(); renderBlocks(); renderTop(); renderHeat(); renderCmp(); renderRecent();
+  }
+  $('mTableBtn').addEventListener('click', function () {
+    var t = $('mTable'); t.hidden = !t.hidden; $('mTableBtn').textContent = t.hidden ? 'Таблица' : 'Скрыть таблицу';
+  });
+  // перерисовка по реальной ширине карточки (на телефоне ширина известна только после раскладки)
+  var rt, lastW = 0;
+  function onBox() {
+    var w = $('chMonths').clientWidth;
+    if (w && Math.abs(w - lastW) > 4) { lastW = w; clearTimeout(rt); rt = setTimeout(renderMonths, 60); }
+  }
+  if (window.ResizeObserver) new ResizeObserver(onBox).observe($('chMonths'));
+  window.addEventListener('resize', onBox);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderHeat);
+  renderFresh();
+  render();
+}
+
+// ================= вход и загрузка данных =================
+(function () {
+  'use strict';
+  // Адрес API (Google Apps Script). Публичный — данные отдаются только после пароля или подписи Telegram.
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzjmusNVe46LA8_ELK3_1hPjPa51TzQ3upmQfin6eWdJ-vHDF3vli-mwsC6uKmt7pieUg/exec';
+  var $ = function (id) { return document.getElementById(id); };
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* приватный режим */ } }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { /* приватный режим */ } }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // Google иногда отвечает HTML-страницей вместо JSON (холодный старт) — до 3 попыток
+  function api(body, tries) {
+    tries = tries || 3;
+    return fetch(API_URL + '?d=1', { method: 'POST', body: JSON.stringify(body) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        try { return JSON.parse(t); } catch (e) {
+          if (tries > 1) return sleep(1500).then(function () { return api(body, tries - 1); });
+          throw new Error('Google вернул не данные — попробуй обновить страницу');
+        }
+      }, function (err) {
+        if (tries > 1) return sleep(1500).then(function () { return api(body, tries - 1); });
+        throw err;
+      });
+  }
+
+  function loading(on, text) { $('loading').hidden = !on; if (text) $('loading').textContent = text; }
+  function show(data, mode) {
+    loading(false);
+    $('gate').hidden = true;
+    $('app').hidden = false;
+    var acts = '<button class="chip" id="btnRefresh" type="button">↻ Обновить</button>';
+    if (mode === 'token') acts += '<button class="chip" id="btnLogout" type="button">Выйти везде</button>';
+    $('hdrActions').innerHTML = acts;
+    $('btnRefresh').addEventListener('click', function () { location.reload(); });
+    if (mode === 'token') $('btnLogout').addEventListener('click', function () {
+      if (!confirm('Выйти на всех устройствах? Потом понадобится пароль.')) return;
+      api({ token: lsGet('dash_token'), logout_all: true }).then(function () { lsDel('dash_token'); location.reload(); });
+    });
+    boot(data);
+  }
+  function gate(msg) {
+    loading(false);
+    $('app').hidden = true;
+    $('gate').hidden = false;
+    $('gateErr').textContent = msg || '';
+    $('gatePass').focus();
+  }
+  function device() {
+    var ua = navigator.userAgent;
+    var os = (ua.match(/Windows|Android|iPhone|iPad|Mac OS X|Linux/) || ['?'])[0];
+    var br = (ua.match(/Edg|OPR|YaBrowser|Chrome|Firefox|Safari/) || ['?'])[0];
+    return os + ', ' + br.replace('Edg', 'Edge').replace('OPR', 'Opera');
+  }
+
+  $('gateForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = $('gateBtn');
+    btn.disabled = true; $('gateErr').textContent = '';
+    api({ password: $('gatePass').value, device: device() }).then(function (r) {
+      btn.disabled = false;
+      if (r.ok) { lsSet('dash_token', r.token); $('gatePass').value = ''; show(r.data, 'token'); return; }
+      var m = { bad_password: 'Неверный пароль' + (r.left !== undefined ? ' (осталось попыток: ' + r.left + ')' : ''),
+                locked: 'Слишком много попыток — вход закрыт ещё на ' + r.minutes + ' мин.',
+                no_password_set: 'Пароль дашборда не задан (DASH_PASSWORD в настройках скрипта)' }[r.error];
+      $('gateErr').textContent = m || ('Ошибка: ' + r.error);
+    }).catch(function (err) { btn.disabled = false; $('gateErr').textContent = String(err.message || err); });
+  });
+
+  // Предпросмотр с встроенными данными (локальный файл) — без входа
+  if (window.EXPENSES_DATA) { $('app').hidden = false; loading(false); boot(window.EXPENSES_DATA); return; }
+
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if (tg && tg.initData) { // открыт из Telegram (Mini App)
+    tg.ready(); tg.expand();
+    if (tg.colorScheme) document.documentElement.setAttribute('data-theme', tg.colorScheme);
+    api({ tg: tg.initData }).then(function (r) {
+      if (r.ok) show(r.data, 'tg'); else loading(true, 'Доступ запрещён: дашборд открывается только у владельца бота.');
+    }).catch(function (err) { loading(true, 'Не удалось загрузить: ' + (err.message || err)); });
+    return;
+  }
+  var tok = lsGet('dash_token');
+  if (!tok) { gate(); return; }
+  api({ token: tok }).then(function (r) {
+    if (r.ok) show(r.data, 'token');
+    else { lsDel('dash_token'); gate(r.error === 'token_expired' ? 'Сессия истекла — войди заново' : ''); }
+  }).catch(function (err) { gate('Не удалось связаться с сервером: ' + (err.message || err)); });
+})();
+</script>
+</body>
+</html>
