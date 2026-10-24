@@ -216,9 +216,24 @@ th:first-child, td:first-child { text-align: left; }
 td.l { text-align: left; white-space: normal; min-width: 150px; }
 tr.total td { font-weight: 700; border-bottom: 0; }
 .heat td { text-align: center; border: 2px solid transparent; border-radius: 8px; padding: 7px 4px; font-size: 12px; min-width: 50px; }
-.heat td:first-child { text-align: left; padding-left: 0; min-width: 110px; font-size: 13px; }
+.heat td:first-child, .heat th:first-child {
+  text-align: left; padding-left: 4px; min-width: 104px; font-size: 13px;
+  position: sticky; left: 0; z-index: 2; background: var(--card-solid); border-radius: 0; box-shadow: 6px 0 8px -6px rgba(0, 0, 0, .12);
+}
 .heat td.none { color: var(--muted); background: var(--chip); }
 .dim { color: var(--muted); }
+.cmpt.narrow th, .cmpt.narrow td { padding: 7px 4px; font-size: 12.5px; }
+.cmpt.narrow td:first-child { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+
+/* лента трат бота: карточки-строки вместо таблицы (влезают в телефон), сворачивается до последней траты */
+.feed { display: grid; gap: 2px; }
+.feed .it { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 2px; border-bottom: 1px solid var(--hair); }
+.feed .it:last-child { border-bottom: 0; }
+.feed .w { font-size: 14px; overflow-wrap: anywhere; }
+.feed .r { font-size: 14px; font-weight: 600; text-align: right; white-space: nowrap; }
+.feed .m { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.feed .o { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+.morebtn { margin-top: 8px; }
 .flag { cursor: help; }
 select { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--hair); background: var(--card-solid); color: var(--ink); }
 .cmpsel { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; color: var(--ink-2); font-size: 13px; }
@@ -325,7 +340,8 @@ footer { color: var(--muted); font-size: 11.5px; padding: 4px 4px 20px; }
     <section class="row" id="kpis"></section>
     <div class="card lift enter mcard" style="--i:4">
       <h2><span id="mTitle">По месяцам</span><button class="linkbtn" id="mTableBtn" type="button">Таблица</button></h2>
-      <div class="sub">Нажми на столбец, чтобы выбрать месяц</div>
+      <div class="sub">Нажми на столбец, чтобы выбрать месяц. Годы — можно несколько</div>
+      <div class="seg" id="mYears" role="group" aria-label="Годы на графике" style="margin-bottom:8px"></div>
       <div id="chMonths"></div>
       <div id="mTable" hidden></div>
     </div>
@@ -348,7 +364,7 @@ footer { color: var(--muted); font-size: 11.5px; padding: 4px 4px 20px; }
       <div class="tablewrap" id="heat"></div>
     </div>
     <div class="card enter ccard" style="--i:11"><h2>Сравнение месяцев</h2><div class="cmpsel" id="cmpSel"></div><div class="tablewrap" id="cmp"></div></div>
-    <div class="card enter rcard" style="--i:12"><h2>Последние траты из бота</h2><div class="sub" id="recentSub"></div><div class="tablewrap" id="recent"></div></div>
+    <div class="card enter rcard" style="--i:12"><h2>Последние траты из бота</h2><div class="sub" id="recentSub"></div><div id="recent"></div></div>
     <footer id="foot"></footer>
   </main>
 </div>
@@ -391,6 +407,8 @@ function boot(RAW) {
 
   var state = { month: hasData[curYm] ? curYm : yms[yms.length - 1], path: [], year: null };
   state.year = state.month.slice(0, 4);
+  // годы на графике «По месяцам»: по умолчанию только последний; остальные добавляются нажатием (25.10.2026)
+  state.chartYears = [years[years.length - 1]];
 
   function mLabel(ym, full) { var m = +ym.slice(5, 7) - 1; return (full ? MF[m] : MS[m]) + (full || multiYear ? ' ' + ym.slice(0, 4) : ''); }
   function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i].rub; return s; }
@@ -603,11 +621,28 @@ function boot(RAW) {
     var p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
     return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
   }
+  function renderChartYears() {
+    $('mYears').innerHTML = years.slice().reverse().map(function (y) {
+      return '<button type="button" data-cy="' + y + '" aria-pressed="' + (state.chartYears.indexOf(y) >= 0) + '">' + y + '</button>';
+    }).join('');
+    $('mYears').querySelectorAll('[data-cy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var y = b.getAttribute('data-cy'), i = state.chartYears.indexOf(y);
+        if (i >= 0) { if (state.chartYears.length > 1) state.chartYears.splice(i, 1); } // хотя бы один год остаётся
+        else state.chartYears.push(y);
+        state.chartYears.sort();
+        renderChartYears(); renderMonths();
+      });
+    });
+  }
   function renderMonths() {
     var box = $('chMonths'), path = state.path;
     $('mTitle').textContent = path.length ? 'По месяцам: ' + path.join(' › ') : 'По месяцам';
-    var W = Math.max(300, box.clientWidth || 600), H = multiYear ? 252 : 240, PL = 46, PR = 6, PT = 20, PB = multiYear ? 38 : 26;
-    var vals = yms.map(function (k) { return { k: k, v: sum(sel(k, path)), has: !!hasData[k] }; });
+    var list = yms.filter(function (k) { return state.chartYears.indexOf(k.slice(0, 4)) >= 0; });
+    var showYear = state.chartYears.length > 1;
+    // PR 18 — запас справа: последний месяц (текущий, со «*» и подписью суммы) не обрезается
+    var W = Math.max(300, box.clientWidth || 600), H = showYear ? 252 : 240, PL = 46, PR = 18, PT = 20, PB = showYear ? 38 : 26;
+    var vals = list.map(function (k) { return { k: k, v: sum(sel(k, path)), has: !!hasData[k] }; });
     var mx = niceMax(Math.max.apply(null, vals.map(function (x) { return x.v; })));
     var iw = W - PL - PR, ih = H - PT - PB, n = vals.length, bw = iw / n, barW = Math.max(6, Math.min(40, bw - 12));
     var y = function (v) { return PT + ih - v / mx * ih; };
@@ -637,10 +672,12 @@ function boot(RAW) {
       }
       // подпись: месяц; год — второй строкой у января и у первого столбца
       var mi = +x.k.slice(5, 7) - 1, ly = PT + ih + 16, every = bw < 22 ? 2 : 1;
-      if (isSel || i % every === 0 || mi === 0) {
+      var selIdx = vals.findIndex(function (z) { return z.k === state.month; });
+      var nearSel = every > 1 && selIdx >= 0 && Math.abs(i - selIdx) === 1; // мало места — соседей выбранного не подписываем
+      if (isSel || ((i % every === 0 || mi === 0) && !nearSel)) {
         s += '<text x="' + cx + '" y="' + ly + '" text-anchor="middle"' + (isSel ? ' class="lbl"' : '') + '>' + MS[mi] + (isPartial(x.k) ? '*' : '') + '</text>';
       }
-      if (multiYear && (mi === 0 || i === 0)) s += '<text x="' + cx + '" y="' + (ly + 14) + '" text-anchor="middle" class="lbl">' + x.k.slice(0, 4) + '</text>';
+      if (showYear && (mi === 0 || i === 0)) s += '<text x="' + cx + '" y="' + (ly + 14) + '" text-anchor="middle" class="lbl">' + x.k.slice(0, 4) + '</text>';
       var src = srcOf[x.k] ? (srcOf[x.k].h && srcOf[x.k].b ? 'история + бот' : srcOf[x.k].h ? 'старая таблица (итоги месяца)' : 'бот (траты по позициям)') : '';
       var t = mLabel(x.k, true) + ': ' + (x.has ? rub(x.v) + '\nисточник: ' + src + (isPartial(x.k) ? '\n* месяц ещё идёт' : '') : 'нет данных');
       s += '<rect x="' + (PL + bw * i) + '" y="' + PT + '" width="' + bw + '" height="' + (ih + PB) + '" fill="transparent" data-m="' + x.k + '" data-tip="' + esc(t) + '" style="cursor:pointer"/>';
@@ -773,12 +810,14 @@ function boot(RAW) {
 
   // ---------- карта блок × месяц ----------
   function renderHeat() {
-    var h = '<table class="heat"><tr><th></th>' + yms.map(function (k) { return '<th>' + mLabel(k) + '</th>'; }).join('') + '</tr>';
+    // от ближайшего месяца к дальним (текущий виден сразу), колонка блоков закреплена при прокрутке (25.10.2026)
+    var ms = yms.slice().reverse();
+    var h = '<table class="heat"><tr><th></th>' + ms.map(function (k) { return '<th>' + mLabel(k) + '</th>'; }).join('') + '</tr>';
     BLOCK_ORDER.forEach(function (b) {
-      var vals = yms.map(function (k) { return sum(sel(k, [b])); }), mx = Math.max.apply(null, vals) || 1;
+      var vals = ms.map(function (k) { return sum(sel(k, [b])); }), mx = Math.max.apply(null, vals) || 1;
       h += '<tr><td>' + esc(b) + '</td>';
       vals.forEach(function (v, i) {
-        var k = yms[i];
+        var k = ms[i];
         if (!hasData[k]) { h += '<td class="none" data-tip="' + esc(b + ', ' + mLabel(k, true) + ': нет данных') + '">—</td>'; return; }
         h += '<td style="' + heatCell(v, mx) + '" data-tip="' + esc(b + ', ' + mLabel(k, true) + ': ' + rub(v)) + '">' + (v ? rubk(v) : '·') + '</td>';
       });
@@ -800,11 +839,13 @@ function boot(RAW) {
     $('cmpA').addEventListener('change', function (e) { cmpA = e.target.value; renderCmp(); });
     $('cmpB').addEventListener('change', function (e) { cmpB = e.target.value; renderCmp(); });
     var A = sel(cmpA, []), B = sel(cmpB, []), ta = 0, tb = 0;
-    var t = '<table><tr><th>Блок</th><th>' + mLabel(cmpA) + '</th><th>' + mLabel(cmpB) + '</th><th>Разница</th><th>%</th></tr>';
+    // телефон: короткие суммы («20,9 к») и узкие колонки — таблица целиком влезает в экран (25.10.2026)
+    var narrow = window.innerWidth < 600, f = narrow ? rubk : rub;
+    var t = '<table class="cmpt' + (narrow ? ' narrow' : '') + '"><tr><th>Блок</th><th>' + mLabel(cmpA) + '</th><th>' + mLabel(cmpB) + '</th><th>' + (narrow ? 'Δ' : 'Разница') + '</th><th>%</th></tr>';
     function row(name, va, vb, total) {
       var d = va - vb, p = vb ? (va / vb - 1) * 100 : null;
-      return '<tr' + (total ? ' class="total"' : '') + '><td>' + esc(name) + '</td><td>' + rub(va) + '</td><td>' + rub(vb) + '</td><td>' +
-        (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + rub(Math.abs(d)) + '</td><td>' + (p === null ? '—' : (p >= 0 ? '+' : '−') + Math.abs(p).toFixed(0) + '%') + '</td></tr>';
+      return '<tr' + (total ? ' class="total"' : '') + '><td>' + esc(name) + '</td><td>' + f(va) + '</td><td>' + f(vb) + '</td><td>' +
+        (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '') + f(Math.abs(d)) + '</td><td>' + (p === null ? '—' : (p >= 0 ? '+' : '−') + Math.abs(p).toFixed(0) + '%') + '</td></tr>';
     }
     BLOCK_ORDER.forEach(function (b) {
       var va = sum(A.filter(function (r) { return r.b === b; })), vb = sum(B.filter(function (r) { return r.b === b; }));
@@ -819,20 +860,31 @@ function boot(RAW) {
       .sort(function (x, y) { return x.d < y.d ? 1 : -1; });
     $('recentSub').textContent = b.length ? b.length + ' трат по позициям · ' + rub(sum(b)) : '';
     if (!b.length) { $('recent').innerHTML = '<div class="empty-state">За выбранный период трат из бота нет — бот ведётся с октября 2026</div>'; return; }
-    var t = '<table><tr><th>Когда (МСК)</th><th>Что</th><th>В валюте</th><th>₽</th><th>Категория</th></tr>';
-    b.slice(0, 60).forEach(function (r) {
-      t += '<tr><td>' + r.d.slice(8, 10) + '.' + r.d.slice(5, 7) + ' ' + r.d.slice(11, 16) + '</td><td class="l">' + esc(r.item) +
-        (r.mer ? ' <span class="dim">· ' + esc(r.mer) + '</span>' : '') + (r.flag ? ' <span class="flag" title="' + esc(r.flag) + '">⚠</span>' : '') + '</td><td>' +
-        (r.cur === 'RUB' ? '' : r.amt.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) + ' <span class="dim">' + (CUR_SIGN[r.cur] || r.cur) + '</span>') +
-        '</td><td>' + rub(r.rub) + '</td><td class="l">' + esc(r.b) + ' <span class="dim">› ' + esc(r.s) + '</span></td></tr>';
-    });
-    $('recent').innerHTML = t + '</table>';
+    // лента: строка 1 — что и сколько ₽, строка 2 — когда · где · категория и сумма в валюте покупки.
+    // Свёрнута до последней траты, кнопка раскрывает остальные (до 60) — просьба Игоря 25.10.2026
+    var LIMIT = 60, shown = state.feedOpen ? b.slice(0, LIMIT) : b.slice(0, 1);
+    var h = '<div class="feed">' + shown.map(function (r) {
+      var when = r.d.slice(8, 10) + '.' + r.d.slice(5, 7) + ' ' + r.d.slice(11, 16);
+      var orig = r.cur === 'RUB' ? '' : r.amt.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) + ' ' + (CUR_SIGN[r.cur] || r.cur);
+      return '<div class="it"><div class="w">' + esc(r.item) + (r.flag ? ' <span class="flag" title="' + esc(r.flag) + '">⚠</span>' : '') + '</div>' +
+        '<div class="r num">' + rub(r.rub) + '</div>' +
+        '<div class="m">' + when + (r.mer ? ' · ' + esc(r.mer) : '') + ' · ' + esc(r.b) + ' › ' + esc(r.s) + '</div>' +
+        '<div class="o num">' + orig + '</div></div>';
+    }).join('') + '</div>';
+    var rest = Math.min(b.length, LIMIT) - 1;
+    if (rest > 0) h += '<button type="button" class="btn morebtn" id="feedToggle">' + (state.feedOpen ? 'Свернуть' : 'Показать ещё +' + rest) + '</button>';
+    $('recent').innerHTML = h;
+    var tg = $('feedToggle');
+    if (tg) tg.addEventListener('click', function () { state.feedOpen = !state.feedOpen; renderRecent(); });
   }
 
   // ---------- сборка ----------
   var first = true;
   function render() {
     hideTip();
+    // выбранный месяц всегда виден на графике: его год добавляется к показанным
+    if (state.month !== 'all' && state.chartYears.indexOf(state.month.slice(0, 4)) < 0) { state.chartYears.push(state.month.slice(0, 4)); state.chartYears.sort(); }
+    renderChartYears();
     renderMonthsNav(); renderRing(); renderAttn(); renderKpis(); renderMonths(); renderTiles();
     renderBlocks(); renderTop(); renderCal(); renderCur(); renderHeat(); renderCmp(); renderRecent();
     first = false;
@@ -927,8 +979,8 @@ function boot(RAW) {
     call('request').then(function step(r) {
       if (!r.ok) { btn.disabled = false; say('Не вышло: ' + (r.error || 'ошибка доступа')); return; }
       var q = r.refresh || {}, sec = Math.round((Date.now() - t0) / 1000);
-      if (q.status === 'queued') say('Ждём ПК… ' + sec + ' с (если ПК выключен — через ~2,5 мин скажу)');
-      else if (q.status === 'running') say('ПК обрабатывает присланное… ' + sec + ' с (обычно 1–3 мин)');
+      if (q.status === 'queued') say('Ждём ПК… ' + sec + ' с (обычно до 15 с; если ПК выключен — через ~1,5 мин скажу)');
+      else if (q.status === 'running') say('ПК обрабатывает присланное… ' + sec + ' с (Claude разбирает сообщения и чеки — обычно 1,5–2,5 мин)');
       else if (q.status === 'ok') { say('Готово: ' + q.msg + '. Загружаю свежие данные…'); dropCache(); setTimeout(function () { location.reload(); }, 1200); return; }
       else { btn.disabled = false; say('Обновить не вышло: ' + (q.msg || q.status) + '. Обработка пройдёт в 10:10 при включённом ПК.'); return; }
       if (Date.now() - t0 > 8 * 60 * 1000) { btn.disabled = false; say('Не дождался ответа за 8 мин — проверь позже.'); return; }
@@ -978,6 +1030,8 @@ function boot(RAW) {
   var tg = window.Telegram && window.Telegram.WebApp;
   if (tg && tg.initData) { // открыт из Telegram (Mini App)
     tg.ready(); tg.expand();  // тема — своя (день/ночь в дашборде), а не тема Telegram
+    // свайп вниз не сворачивает дашборд — закрытие только кнопкой Telegram (просьба Игоря 25.10.2026)
+    try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) { /* старый Telegram */ }
     AUTH = { tg: tg.initData };
     load({ tg: tg.initData }, 'tg', function (r) {
       if (shown) { location.reload(); return; }
