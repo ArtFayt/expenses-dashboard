@@ -222,8 +222,9 @@ table.heat { border-collapse: separate; border-spacing: 3px; }
 .heat td:first-child, .heat th:first-child {
   text-align: left; padding-left: 4px; min-width: 104px; font-size: 13px;
   position: sticky; left: 0; z-index: 3; background: var(--card-solid); border-radius: 0;
-  /* сплошная «заливка» зазоров слева/справа + мягкая тень-разделитель */
-  box-shadow: -4px 0 0 var(--card-solid), 4px 0 0 var(--card-solid), 12px 0 10px -8px rgba(0, 0, 0, .18);
+  /* сплошная обводка закрывает зазоры между ячейками со всех сторон (цвета не просвечивают) + тень-разделитель справа */
+  outline: 4px solid var(--card-solid);
+  box-shadow: 14px 0 12px -10px rgba(0, 0, 0, .22);
 }
 .heat td.none { color: var(--muted); background: var(--chip); }
 .dim { color: var(--muted); }
