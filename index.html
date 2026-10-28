@@ -581,7 +581,8 @@ function boot(RAW) {
     var gaps = yms.filter(function (k) { return !hasData[k]; });
     if (gaps.length) items.push('Нет данных за ' + gaps.map(function (k) { return mLabel(k, true); }).join(', '));
     // служебные пометки истории («история: итог месяца», «возврат») — не проблема, во «Внимание» не выводим
-    var fl = sel(state.month, []).filter(function (r) { return r.flag && !/^история/.test(r.flag); });
+    // + пометки о скидках не показываем (просьба Игоря 28.10.2026)
+    var fl = sel(state.month, []).filter(function (r) { return r.flag && !/^история/.test(r.flag) && !/скидк/i.test(r.flag); });
     if (fl.length) {
       var byF = {}; fl.forEach(function (r) { byF[r.flag] = (byF[r.flag] || 0) + 1; });
       Object.keys(byF).forEach(function (f) { items.push('⚠ ' + f + ': ' + byF[f] + ' трат ' + periodLabel()); });
